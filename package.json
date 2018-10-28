@@ -1,6 +1,7 @@
 {
   "name": "twitchgate",
-  "version": "0.0.1",
+  "version": "0.0.2",
+  "repository": "github:Akhawais/TwitchGate",
   "description": "A REST proxy that silently handles authentication with the Twitch Kraken and Helix APIs.",
   "main": "index.js",
   "scripts": {
