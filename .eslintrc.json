@@ -1,0 +1,9 @@
+{
+  "extends": "airbnb-base",
+  "rules": {
+    "no-var": "error",
+    "prefer-const": "off",
+    "import/newline-after-import": "disable",
+    "no-console": "off"
+  }
+}
