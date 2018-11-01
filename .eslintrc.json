@@ -4,6 +4,8 @@
     "no-var": "error",
     "prefer-const": "off",
     "import/newline-after-import": "disable",
-    "no-console": "off"
+    "no-console": "off",
+    "quotes": [2, "backtick"],
+    "no-underscore-dangle": "off"
   }
 }
