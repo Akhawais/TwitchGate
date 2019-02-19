@@ -91,7 +91,7 @@ const attemptAuthorisedResponse = async (req, res) => {
     return;
   }
 
-  newHeaders.authorization = `${req.is(`/helix*`) ? `Bearer` : `OAuth`} ${config.access_token[channel]}`;
+  newHeaders.authorization = `${/^\/helix/.test(req.originalUrl) ? `Bearer` : `OAuth`} ${config.access_token[channel]}`;
   newHeaders[`client-id`] = `${config.client_id}`;
 
   try {
