@@ -70,7 +70,7 @@ const checkAndSetToken = async (channel) => {
   }
 };
 
-const attemptAuthorisedResponse = async (req, res, helix = false) => {
+const attemptAuthorisedResponse = async (req, res) => {
   let newHeaders = req.headers;
   delete newHeaders.host;
 
@@ -91,7 +91,7 @@ const attemptAuthorisedResponse = async (req, res, helix = false) => {
     return;
   }
 
-  newHeaders.authorization = `${helix ? `Bearer` : `OAuth`} ${config.access_token[channel]}`;
+  newHeaders.authorization = `${req.is(`/helix*`) ? `Bearer` : `OAuth`} ${config.access_token[channel]}`;
   newHeaders[`client-id`] = `${config.client_id}`;
 
   try {
@@ -154,9 +154,6 @@ app2.get(`/gate/auth/return`, async (req, res) => {
     }
   }
 });
-
-app2.all(`/kraken*`, attemptAuthorisedResponse);
-app2.all(`/helix*`, async (req, res) => attemptAuthorisedResponse(req, res, true));
 app2.all(`/*`, attemptAuthorisedResponse);
 
 app.listen(config.port, config.host);
