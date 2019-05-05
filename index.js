@@ -4,8 +4,10 @@ const nocache = require(`nocache`);
 const auth = require(`basic-auth`);
 const app = express();
 const app2 = express();
+require(`express-ws`)(app2);
 const fs = require(`fs`);
 const bodyParser = require(`body-parser`);
+const WebSocket = require(`ws`);
 let config = require(`./config/config.json`);
 
 // Upgrade from 0.0.2
@@ -117,6 +119,35 @@ const attemptAuthorisedResponse = async (req, res) => {
     res.status(err.response.status).json(err.response.data);
   }
 };
+const attemptAuthorisedWebsocket = async (ws, req) => {
+  if (config.access_token.length === 0) {
+    ws.close(1008, `Initial authorisation required.`);
+    return;
+  }
+
+  const user = auth(req);
+  let channel = Object.keys(config.access_token)[0] || ``;
+
+  if (user !== undefined && user.user !== ``) {
+    channel = user.name;
+  }
+
+  if (config.access_token[channel] === undefined || config.access_token[channel] === ``) {
+    ws.close(1008, `Initial authorisation required.`);
+    return;
+  }
+  ws.send(JSON.stringify({ type: `connect`, channel_id: channel }));
+  const upstream = new WebSocket(`wss://irc-ws.chat.twitch.tv/`);
+  upstream.on(`open`, () => {
+    upstream.send(`PASS oauth:${config.access_token[channel]}`);
+    upstream.send(`NICK ${channel}`);
+    ws.send(JSON.stringify({ type: `handover` }));
+  });
+  upstream.on(`message`, x => ws.send(x));
+  ws.on(`message`, x => upstream.send(x));
+  upstream.on(`close`, () => ws.close(1000));
+  ws.on(`close`, () => upstream.close(1000));
+};
 app2.get(`/gate/auth`, (req, res) => {
   let state = ``;
   if (req.query.state) state = `&state=${req.query.state}`;
@@ -154,7 +185,9 @@ app2.get(`/gate/auth/return`, async (req, res) => {
     }
   }
 });
+app2.ws(`/chat`, attemptAuthorisedWebsocket);
 app2.all(`/*`, attemptAuthorisedResponse);
+
 
 app.listen(config.port, config.host);
 console.log(`Client App started on ${config.host}:${config.port}`);
