@@ -148,6 +148,33 @@ const attemptAuthorisedWebsocket = async (ws, req) => {
   upstream.on(`close`, () => ws.close(1000));
   ws.on(`close`, () => upstream.close(1000));
 };
+const attemptAuthorisedPubsub = async (ws, req) => {
+  if (config.access_token.length === 0) {
+    ws.close(1008, `Initial authorisation required.`);
+    return;
+  }
+
+  const user = auth(req);
+  let channel = Object.keys(config.access_token)[0] || ``;
+
+  if (user !== undefined && user.user !== ``) {
+    channel = user.name;
+  }
+
+  if (config.access_token[channel] === undefined || config.access_token[channel] === ``) {
+    ws.close(1008, `Initial authorisation required.`);
+    return;
+  }
+  ws.send(JSON.stringify({ type: `connect`, channel_id: channel }));
+  const upstream = new WebSocket(`wss://pubsub-edge.twitch.tv/`);
+  upstream.on(`open`, () => {
+    ws.send(JSON.stringify({ type: `handover` }));
+  });
+  upstream.on(`message`, x => ws.send(x));
+  ws.on(`message`, x => upstream.send(x.replace(`!CHANNEL_TOKEN!`, config.access_token[channel])));
+  upstream.on(`close`, () => ws.close(1000));
+  ws.on(`close`, () => upstream.close(1000));
+};
 app2.get(`/gate/auth`, (req, res) => {
   let state = ``;
   if (req.query.state) state = `&state=${req.query.state}`;
@@ -186,6 +213,7 @@ app2.get(`/gate/auth/return`, async (req, res) => {
   }
 });
 app2.ws(`/chat`, attemptAuthorisedWebsocket);
+app2.ws(`/pubsub`, attemptAuthorisedPubsub);
 app2.all(`/*`, attemptAuthorisedResponse);
 
 
