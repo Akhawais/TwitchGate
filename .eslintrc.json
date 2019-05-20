@@ -6,6 +6,7 @@
     "import/newline-after-import": "disable",
     "no-console": "off",
     "quotes": [2, "backtick"],
-    "no-underscore-dangle": "off"
+    "no-underscore-dangle": "off",
+    "no-param-reassign": "off"
   }
 }
