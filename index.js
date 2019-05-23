@@ -105,7 +105,7 @@ const attemptAuthorisedResponse = async (req, res) => {
     });
     res.status(response.status).json(response.data);
   } catch (err) {
-    console.log(err.response.headers);
+    console.error(err.response.headers);
     if (err.response.status === 401 && ((err.response.headers[`www-authenticate`] !== undefined && err.response.headers[`www-authenticate`].includes(`invalid_token`)) || err.response.data.message.includes(`oauth token`))) {
       let check = await checkAndSetToken(channel);
       if (check === `reauth`) {
@@ -136,6 +136,25 @@ const attemptAuthorisedWebsocket = async (ws, req) => {
     ws.close(1008, `Initial authorisation required.`);
     return;
   }
+
+  try {
+    let response = await axios.get(`https://api.twitch.tv/kraken`, {
+      headers: {
+        Authorization: `Bearer ${config.access_token[channel]}`,
+        'Client-ID': config.client_id,
+      },
+    });
+    if (response.data.token.valid !== true) {
+      let check = await checkAndSetToken(channel);
+      if (check === `reauth`) {
+        ws.close(1008, `Re-authorisation required.`);
+        return;
+      }
+    }
+  } catch (err) {
+    console.error(err);
+  }
+
   ws.send(JSON.stringify({ type: `connect`, channel_id: channel }));
   const upstream = new WebSocket(`wss://irc-ws.chat.twitch.tv/`);
   upstream.on(`open`, () => {
@@ -162,13 +181,30 @@ const attemptAuthorisedPubsub = async (ws) => {
     ws.send(JSON.stringify({ type: `handover` }));
   });
   upstream.on(`message`, x => ws.send(x));
-  ws.on(`message`, (x) => {
+  ws.on(`message`, async (x) => {
     let channelMatch = x.match(/!(?:[\w-]+)\.(\d+)!/);
     if (channelMatch !== null) {
       [, channel] = channelMatch;
       if (config.access_token[channel] === undefined || config.access_token[channel] === ``) {
         ws.close(1008, `Initial authorisation required.`);
         return;
+      }
+      try {
+        let response = await axios.get(`https://api.twitch.tv/kraken`, {
+          headers: {
+            Authorization: `Bearer ${config.access_token[channel]}`,
+            'Client-ID': config.client_id,
+          },
+        });
+        if (response.data.token.valid !== true) {
+          let check = await checkAndSetToken(channel);
+          if (check === `reauth`) {
+            ws.close(1008, `Re-authorisation required.`);
+            return;
+          }
+        }
+      } catch (err) {
+        console.error(err);
       }
       x = x.replace(`!CHANNEL_TOKEN.${channel}!`, config.access_token[channel]);
     }
