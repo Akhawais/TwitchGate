@@ -140,7 +140,7 @@ const attemptAuthorisedWebsocket = async (ws, req) => {
   try {
     let response = await axios.get(`https://api.twitch.tv/kraken`, {
       headers: {
-        Authorization: `Bearer ${config.access_token[channel]}`,
+        Authorization: `OAuth ${config.access_token[channel]}`,
         'Client-ID': config.client_id,
       },
     });
@@ -192,7 +192,7 @@ const attemptAuthorisedPubsub = async (ws) => {
       try {
         let response = await axios.get(`https://api.twitch.tv/kraken`, {
           headers: {
-            Authorization: `Bearer ${config.access_token[channel]}`,
+            Authorization: `OAuth ${config.access_token[channel]}`,
             'Client-ID': config.client_id,
           },
         });
