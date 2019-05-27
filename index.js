@@ -184,20 +184,20 @@ const attemptAuthorisedPubsub = async (ws) => {
   ws.on(`message`, async (x) => {
     let channelMatch = x.match(/!(?:[\w-]+)\.(\d+)!/);
     if (channelMatch !== null) {
-      [, channel] = channelMatch;
-      if (config.access_token[channel] === undefined || config.access_token[channel] === ``) {
+      const authChannel = channelMatch[1];
+      if (config.access_token[authChannel] === undefined || config.access_token[authChannel] === ``) {
         ws.close(1008, `Initial authorisation required.`);
         return;
       }
       try {
         let response = await axios.get(`https://api.twitch.tv/kraken`, {
           headers: {
-            Authorization: `OAuth ${config.access_token[channel]}`,
+            Authorization: `OAuth ${config.access_token[authChannel]}`,
             'Client-ID': config.client_id,
           },
         });
         if (response.data.token.valid !== true) {
-          let check = await checkAndSetToken(channel);
+          let check = await checkAndSetToken(authChannel);
           if (check === `reauth`) {
             ws.close(1008, `Re-authorisation required.`);
             return;
@@ -206,7 +206,7 @@ const attemptAuthorisedPubsub = async (ws) => {
       } catch (err) {
         console.error(err);
       }
-      x = x.replace(`!CHANNEL_TOKEN.${channel}!`, config.access_token[channel]);
+      x = x.replace(`!authChannel_TOKEN.${authChannel}!`, config.access_token[authChannel]);
     }
     upstream.send(x);
   });
