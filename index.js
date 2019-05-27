@@ -206,7 +206,7 @@ const attemptAuthorisedPubsub = async (ws) => {
       } catch (err) {
         console.error(err);
       }
-      x = x.replace(`!authChannel_TOKEN.${authChannel}!`, config.access_token[authChannel]);
+      x = x.replace(`!CHANNEL_TOKEN.${authChannel}!`, config.access_token[authChannel]);
     }
     upstream.send(x);
   });
