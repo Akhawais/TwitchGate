@@ -140,6 +140,7 @@ const attemptAuthorisedWebsocket = async (ws, req) => {
   try {
     let response = await axios.get(`https://api.twitch.tv/kraken`, {
       headers: {
+        Accept: `application/vnd.twitchtv.v5+json`,
         Authorization: `OAuth ${config.access_token[channel]}`,
         'Client-ID': config.client_id,
       },
@@ -192,6 +193,7 @@ const attemptAuthorisedPubsub = async (ws) => {
       try {
         let response = await axios.get(`https://api.twitch.tv/kraken`, {
           headers: {
+            Accept: `application/vnd.twitchtv.v5+json`,
             Authorization: `OAuth ${config.access_token[authChannel]}`,
             'Client-ID': config.client_id,
           },
@@ -238,7 +240,8 @@ app2.get(`/gate/auth/return`, async (req, res) => {
       });
       let userResponse = await axios.get(`https://api.twitch.tv/kraken/user`, {
         headers: {
-          authorization: `OAuth ${authorisationResponse.data.access_token}`,
+          Accept: `application/vnd.twitchtv.v5+json`,
+          Authorization: `OAuth ${authorisationResponse.data.access_token}`,
         },
       });
       config.access_token[userResponse.data._id] = authorisationResponse.data.access_token;
