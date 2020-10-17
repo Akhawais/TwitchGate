@@ -5,7 +5,7 @@
   "description": "A REST proxy that silently handles authentication with the Twitch Kraken and Helix APIs.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "yarn run lint",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
