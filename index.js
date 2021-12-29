@@ -106,7 +106,7 @@ const attemptAuthorisedResponse = async (req, res) => {
     res.status(response.status).json(response.data);
   } catch (err) {
     console.error(err.response.headers);
-    if (err.response.status === 401 && ((err.response.headers[`www-authenticate`] !== undefined && err.response.headers[`www-authenticate`].includes(`invalid_token`)) || err.response.data.message.includes(`oauth token`))) {
+    if (err.response.status === 401 && ((err.response.headers[`www-authenticate`] !== undefined && err.response.headers[`www-authenticate`].includes(`invalid_token`)) || err.response.data.message.match(/oauth token/i) !== null)) {
       let check = await checkAndSetToken(channel);
       if (check === `reauth`) {
         res.status(501).json({ error: `Re-authorisation required.` });
