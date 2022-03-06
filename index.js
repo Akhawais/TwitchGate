@@ -138,21 +138,19 @@ const attemptAuthorisedWebsocket = async (ws, req) => {
   }
 
   try {
-    let response = await axios.get(`https://api.twitch.tv/kraken`, {
+    await axios.get(`https://id.twitch.tv/oauth2/validate`, {
       headers: {
-        Accept: `application/vnd.twitchtv.v5+json`,
-        Authorization: `OAuth ${config.access_token[channel]}`,
-        'Client-ID': config.client_id,
+        Authorization: `Bearer ${config.access_token[channel]}`,
       },
     });
-    if (response.data.token.valid !== true) {
+  } catch (err) {
+    if (err.response && err.response.status === 401) {
       let check = await checkAndSetToken(channel);
       if (check === `reauth`) {
         ws.close(1008, `Re-authorisation required.`);
         return;
       }
     }
-  } catch (err) {
     console.error(err);
   }
 
@@ -191,21 +189,19 @@ const attemptAuthorisedPubsub = async (ws) => {
         return;
       }
       try {
-        let response = await axios.get(`https://api.twitch.tv/kraken`, {
+        await axios.get(`https://id.twitch.tv/oauth2/validate`, {
           headers: {
-            Accept: `application/vnd.twitchtv.v5+json`,
-            Authorization: `OAuth ${config.access_token[authChannel]}`,
-            'Client-ID': config.client_id,
+            Authorization: `Bearer ${config.access_token[authChannel]}`,
           },
         });
-        if (response.data.token.valid !== true) {
+      } catch (err) {
+        if (err.response && err.response.status === 401) {
           let check = await checkAndSetToken(authChannel);
           if (check === `reauth`) {
             ws.close(1008, `Re-authorisation required.`);
             return;
           }
         }
-      } catch (err) {
         console.error(err);
       }
       x = x.replace(`!CHANNEL_TOKEN.${authChannel}!`, config.access_token[authChannel]);
@@ -238,16 +234,15 @@ app2.get(`/gate/auth/return`, async (req, res) => {
           code: req.query.code,
         },
       });
-      let userResponse = await axios.get(`https://api.twitch.tv/kraken/user`, {
+      let userResponse = await axios.get(`https://id.twitch.tv/oauth2/validate`, {
         headers: {
-          Accept: `application/vnd.twitchtv.v5+json`,
-          Authorization: `OAuth ${authorisationResponse.data.access_token}`,
+          Authorization: `Bearer ${authorisationResponse.data.access_token}`,
         },
       });
-      config.access_token[userResponse.data._id] = authorisationResponse.data.access_token;
-      config.refresh_token[userResponse.data._id] = authorisationResponse.data.refresh_token;
+      config.access_token[userResponse.data.user_id] = authorisationResponse.data.access_token;
+      config.refresh_token[userResponse.data.user_id] = authorisationResponse.data.refresh_token;
       saveConfig();
-      res.status(200).json({ status: `OK, saved ${userResponse.data.name} (Twitch ID: ${userResponse.data._id})` });
+      res.status(200).json({ status: `OK, saved ${userResponse.data.login} (Twitch ID: ${userResponse.data.login})` });
     } catch (err) {
       res.status(401).json({ error: `Failed to get code.`, code: err.response.status, twitch: err.response.data });
     }
