@@ -1,10 +1,12 @@
 {
   "name": "twitchgate",
-  "version": "1.1.7",
+  "version": "2.0.0",
   "repository": "github:Akhawais/TwitchGate",
   "description": "A REST proxy that silently handles authentication with the Twitch Kraken and Helix APIs.",
   "main": "index.js",
   "scripts": {
+    "init": "$(cp -n config/config.example.json config/config.json | true) && node setup.js",
+    "start": "node index.js",
     "test": "yarn run lint",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
@@ -12,8 +14,9 @@
   "author": "Dylan Akhawais <dylan@akhawais.co.uk>",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.24.0",
+    "axios": "^1.7.7",
     "basic-auth": "^2.0.1",
+    "better-sqlite3": "^11.5.0",
     "body-parser": "^1.18.2",
     "cors": "^2.8.4",
     "express": "^4.16.3",
@@ -23,7 +26,7 @@
     "ws": "^7.0.0"
   },
   "devDependencies": {
-    "eslint": "^4.19.1",
+    "eslint": "^8.2.0",
     "eslint-config-airbnb-base": "^13.1.0",
     "eslint-plugin-import": "^2.11.0",
     "eslint-plugin-node": "^6.0.1",

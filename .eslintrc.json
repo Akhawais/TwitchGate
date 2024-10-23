@@ -3,10 +3,12 @@
   "rules": {
     "no-var": "error",
     "prefer-const": "off",
-    "import/newline-after-import": "disable",
+    "import/newline-after-import": "off",
     "no-console": "off",
     "quotes": [2, "backtick"],
     "no-underscore-dangle": "off",
+    "no-restricted-syntax": "off",
+    "max-len": "off",
     "no-param-reassign": "off"
   }
 }
