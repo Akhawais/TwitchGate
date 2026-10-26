@@ -1,3 +1,5 @@
 node_modules
 .idea
 config/config.json
+db/
+.DS_Store

@@ -4,5 +4,6 @@
   "redirect_uri": "{APP_URL}/gate/auth/return",
   "state_code": "",
   "host": "127.0.0.1",
-  "port": 2570
+  "port": 2570,
+  "api_keys": {}
 }

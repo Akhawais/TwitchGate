@@ -1,69 +1,98 @@
 # TwitchGate
 
-TwitchGate is a proxy to the Twitch services. It can authenticate and proxy requests for Kraken (v5) or Helix (New Twitch API). It also proxies Twitch WS connections with authentication silently handled, including PubSub and IRC/WS.
+TwitchGate is a proxy to the Twitch services that centrally manages OAuth tokens for all your apps. It proxies Helix requests and Twitch chat (IRC over WebSocket) with authentication silently handled, and can hand tokens out to apps that need to talk to Twitch directly.
 
-This is useful if you create and maintain a lot of apps for a single user/channel and need a central place to manage an OAuth token so you don't have to set up code and a Twitch app for every application you make.
+This is useful if you create and maintain a lot of apps or microservices for one or more users/channels: there's a single Twitch app and a single place where tokens are stored, refreshed and validated, so none of your services need OAuth code of their own.
 
-This is designed to be ran in a local network that is not accessible to the Internet. If your apps are hosted on separate servers, consider setting up a VPN between them to use this gate.
+This is designed to be run on a local network that is not accessible from the Internet. If your apps are hosted on separate servers, consider setting up a VPN between them, and configure `api_keys` so only your own services can use the gate.
 
 ## Getting started
 
-Clone this repository and run `yarn` or `npm install` to install the necessary dependencies.
+Requires Node.js 22 or later. Clone this repository and run `yarn` or `npm install` to install the dependencies.
 
 ## Configuration
-Rename `config.example.json` to `config.json` and then add the following fields:
 
-- Your Twitch App's Client ID
-- Your Twitch App's Client Secret
-- Leave `access_token` and `refresh_token` blank
-- The Redirect URI for the app which is the domain and port followed by `/gate/auth/return`
-- `state_code` : A long random string to prevent other people authorising onto your gate accidentally (OPTIONAL - Leave empty to disable)
-- Scopes, try and make this as broad as you need for all your apps, but not too much.
+Copy `config/config.example.json` to `config/config.json` (or run `npm run init`) and fill in:
+
+- `client_id` / `client_secret`: your Twitch app's credentials
+- `redirect_uri`: the OAuth app's address followed by `/gate/auth/return` (OAuth app is on `port` + 1)
+- `state_code`: a long random string to stop other people authorising onto your gate (optional, leave empty to disable)
+- `host` / `port`: where to listen
+- `api_keys`: a map of service name to secret key, e.g. `{"chatbot": "…", "overlay": "…"}`. When set, every request to the gate must present one of these keys. Leave empty to allow any client (not recommended outside a trusted network)
+
+`TWITCHGATE_CONFIG` and `TWITCHGATE_DB` environment variables override the config and database paths.
+
+The scopes requested during authorisation are stored in the `scopes` table of `db/twitchgate.db`. Set `disabled` on any you don't need.
 
 ## Starting the proxy
 
-Run `node index`
+Run `npm start`.
 
-The app will be hosted at your specified `host` and `port` in the config. The OAuth app will be hosted at `port` + 1.
+The database is created on first start, and older databases and configs (0.0.2 and 1.x tokens in `config.json`) are migrated automatically.
 
-## Setup
+The Client App is hosted at `host`:`port`, and the OAuth App (the authenticated proxy) at `port` + 1.
 
-Whilst logged in with the channel/user you wish to add to TwitchGate, head to `/gate/auth` (including the `state` as a query param if you have set this in the config).
+## Adding channels
 
-Authorise on the Twitch OAuth screen, and you'll be redirected back to the gate which should show a success message.
+While logged in to Twitch as the channel/user you wish to add, open `/gate/auth` on the OAuth App (with `?state=<state_code>` if you set one).
 
-Repeat with as many channels/users as you need.
+Authorise on the Twitch OAuth screen, and you'll be redirected back to the gate, which shows a success message.
+
+Repeat with as many channels/users as you need. Re-authorising an existing channel replaces its tokens.
+
+## Token management
+
+- Tokens are refreshed shortly before they expire, so services aren't handed a token that's about to die.
+- Every token is validated hourly, as Twitch requires.
+- When many requests hit an expired token at once, the gate refreshes it once and shares the result.
+- If Twitch rejects a refresh token (e.g. the user disconnected the app), the channel is flagged as needing re-authorisation and shows up in `/gate/health`.
 
 ## Usage
 
+### Choosing a channel and authenticating
+
+Every endpoint on the OAuth App takes the channel and API key in either of two ways:
+
+- **Basic auth**: username = channel (Twitch ID or login), password = API key
+- **Headers**: `X-Gate-Channel` and `X-Gate-Key`. Use these when your Twitch SDK sets its own `Authorization` header
+
+If no channel is given, the gate uses the first channel that was added.
+
 ### REST APIs
 
-Replace `https://api.twitch.tv` with your Twitch Gate URL. That's it!
+Replace `https://api.twitch.tv` with the OAuth App's URL. That's it!
 
 e.g. `https://api.twitch.tv/helix/streams` => `http://gate.local:2571/helix/streams`
 
-You must specify the Twitch user you wish to authenticate as by including a Basic Authorization header with the request, with the Twitch ID as the basic auth `username`.
+The gate adds the `Client-Id` and `Authorization` headers, retries once with a refreshed token if Twitch rejects it, and passes Twitch's response back untouched, including the `Ratelimit-*` headers.
 
-If omitted, Gate will authenticate as the first Twitch user added during Setup.
+The Client App (`port`) is an unauthenticated passthrough that only adds `Client-Id`, for app-token or public requests.
+
+### Getting a token
+
+`GET /gate/access_token` returns a token for apps that need to call Twitch directly:
+
+```json
+{ "access_token": "…", "id": "12345", "login": "mychannel", "scopes": ["…"], "expires_at": "2026-01-01T00:00:00.000Z", "needs_reauth": false, "last_updated": "…" }
+```
+
+Add `?verify=yes` to have the gate validate it with Twitch first. Cache it until `expires_at` rather than fetching it on every call.
+
+### Channels and health
+
+- `GET /gate/channels` lists the authorised channels, their scopes and token status (without tokens).
+- `GET /gate/health` returns the number of channels and any that need re-authorisation. It needs no API key, for use by monitoring.
 
 ### IRC/WS
 
-Connect to `/chat` with a WS client. Like the REST APIs, pass the Twitch ID of the user you want to connect as in the `username` of a Basic Authorization header with the connection request.
+Connect to `/chat` with a WS client, passing the channel and API key as above.
 
 Gate will send a `{"type":"connect", "channel_id": "....."}` JSON payload before it connects to Twitch.
 
-Gate will send a `{"type":"handover"}` JSON payload when it has sent IRC credentials to Twitch. After this, continue as normal with the IRC/WS protocol.
+Gate will send a `{"type":"handover"}` JSON payload when it has sent IRC credentials to Twitch. After this, continue as normal with the IRC/WS protocol. Anything you send before handover is held and delivered after login.
 
-### PubSub
+### EventSub (replaces PubSub)
 
-Connect to `/pubsub` with a WS client. Gate will send a `{"type":"connect", "channel_id": "....."}` JSON payload before it connects to PubSub.
+Twitch shut down PubSub in April 2025, so `/pubsub` now closes immediately with an explanation.
 
-Gate will send a `{"type":"handover"}` JSON payload when it has connected to PubSub. After this, continue as normal with the PubSub protocol.
-
-When subscribing to privileged topics, an `auth_token` field is required as per the PubSub protocol.
-
-By entering `!CHANNEL_TOKEN.000000!` in this field, where 000000 is the Twitch ID of the channel you want to authenticate as, TwitchGate will replace this with a valid token for that channel.
-
-This is different to the REST and IRC method since the Twitch PubSub endpoint is channel-agnostic.
-
-
+Use EventSub instead: connect directly to `wss://eventsub.wss.twitch.tv/ws`, take the `session_id` from the welcome message, then create subscriptions through the gate with `POST /helix/eventsub/subscriptions` and `"transport": {"method": "websocket", "session_id": "…"}`. The gate signs the request with the channel's token.
