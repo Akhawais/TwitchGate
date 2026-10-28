@@ -1,0 +1,28 @@
+# Copy to docker-compose.yml and fill in .env (see .env.example)
+services:
+  twitchgate:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - twitchgate-data:/data
+    ports:
+      # Only the OAuth app needs to be reachable from your browser, to add channels via /gate/auth.
+      # Bound to localhost; put it behind your VPN or reverse proxy rather than exposing it publicly.
+      - "127.0.0.1:2571:2571"
+    networks:
+      - twitchgate
+
+  # Your services join the same network and reach the gate at http://twitchgate:2571
+  # example-service:
+  #   image: my-service
+  #   environment:
+  #     TWITCH_API_BASE: http://twitchgate:2571
+  #   networks:
+  #     - twitchgate
+
+volumes:
+  twitchgate-data:
+
+networks:
+  twitchgate:

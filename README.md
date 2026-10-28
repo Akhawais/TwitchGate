@@ -32,6 +32,29 @@ The database is created on first start, and older databases and configs (0.0.2 a
 
 The Client App is hosted at `host`:`port`, and the OAuth App (the authenticated proxy) at `port` + 1.
 
+## Running in Docker
+
+The gate can be configured entirely with environment variables: `TWITCHGATE_CLIENT_ID`, `TWITCHGATE_CLIENT_SECRET`, `TWITCHGATE_REDIRECT_URI`, `TWITCHGATE_STATE_CODE` and `TWITCHGATE_API_KEYS` (comma-separated `name:key` pairs). These override `config.json` when both are present.
+
+1. Copy `.env.example` to `.env` and fill it in. Add `TWITCHGATE_REDIRECT_URI` as an OAuth redirect URL on your Twitch app.
+2. Copy `docker-compose.example.yml` to `docker-compose.yml`, and add your services to the `twitchgate` network.
+3. Run `docker compose up -d`.
+4. Add channels by opening `http://localhost:2571/gate/auth` in your browser.
+
+Your services then use `http://twitchgate:2571` in place of `https://api.twitch.tv`.
+
+Tokens are stored in the `twitchgate-data` volume (`/data` in the container), so they survive rebuilds. Back this volume up: losing it means re-authorising every channel.
+
+To move an existing install into Docker, copy `db/twitchgate.db` into the volume before first start:
+
+```sh
+docker compose create
+docker compose cp db/twitchgate.db twitchgate:/data/twitchgate.db
+# The copy keeps your host user's ownership; the gate runs as `node` and needs to write to it
+docker compose run --rm --no-deps --user root --entrypoint chown twitchgate node:node /data/twitchgate.db
+docker compose up -d
+```
+
 ## Adding channels
 
 While logged in to Twitch as the channel/user you wish to add, open `/gate/auth` on the OAuth App (with `?state=<state_code>` if you set one).

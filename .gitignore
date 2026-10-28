@@ -3,3 +3,5 @@ node_modules
 config/config.json
 db/
 .DS_Store
+.env
+docker-compose.yml
